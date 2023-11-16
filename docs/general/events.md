@@ -3,23 +3,32 @@ linkTitle: Events
 aliases: [docs/specs/semconv/general/events-general]
 --->
 
-# Semantic Conventions for Event Attributes
+# Event Semantic Conventions
 
 **Status**: [Experimental][DocumentStatus]
+
+<!-- toc -->
+
+- [Event Classification](#event-classification)
+- [Event Payloads](#event-payloads)
+
+<!-- tocstop -->
 
 This document describes the attributes of standalone Events that are represented
 in the data model by `LogRecord`s.
 
 The following semantic conventions for events are defined:
 
-* **[General](#general-event-attributes): General semantic attributes that may be used in describing Events.**
-* [Exceptions](/docs/exceptions/exceptions-logs.md): Semantic attributes that may be used in describing exceptions as events.
+- **[Event Classification](#event-classification): For classifying events.
+  types.**
+- **[Event Payloads](#general-event-attributes): For defining event payloads.**
+- [Mobile Events](/docs/mobile/events.md): For mobile events.
 
-## General event attributes
+## Event Classification
 
-Events are recorded as LogRecords that are shaped
-in a special way: Event LogRecords have the attributes `event.domain`
-and `event.name` (and possibly other LogRecord attributes).
+Events are recorded as LogRecords that are shaped in a special way: Event
+LogRecords have the attributes `event.domain` and `event.name` (and possibly
+other LogRecord attributes).
 
 The `event.domain` attribute is used to logically separate events from different
 systems. For example, to record Events from browser apps, mobile apps and
@@ -36,25 +45,43 @@ When recording events from an existing system as OpenTelemetry Events, it is
 possible that the existing system does not have the equivalent of a name or
 requires multiple fields to identify the structure of the events. In such cases,
 OpenTelemetry recommends using a combination of one or more fields as the name
-such that the name identifies the event structurally. It is also recommended that
-the event names have low-cardinality, so care must be taken to use fields
+such that the name identifies the event structurally. It is also recommended
+that the event names have low-cardinality, so care must be taken to use fields
 that identify the class of Events but not the instance of the Event.
 
 <!-- semconv event -->
-| Attribute  | Type | Description  | Examples  | Requirement Level |
-|---|---|---|---|---|
-| `event.domain` | string | The domain identifies the business context for the events. [1] | `browser` | Required |
-| `event.name` | string | The name identifies the event. | `click`; `exception` | Required |
 
-**[1]:** Events across different domains may have same `event.name`, yet be unrelated events.
+| Attribute      | Type   | Description                                                    | Examples             | Requirement Level |
+|----------------|--------|----------------------------------------------------------------|----------------------|-------------------|
+| `event.domain` | string | The domain identifies the business context for the events. [1] | `browser`            | Required          |
+| `event.name`   | string | The name identifies the event.                                 | `click`; `exception` | Required          |
 
-`event.domain` has the following list of well-known values. If one of them applies, then the respective value MUST be used, otherwise a custom value MAY be used.
+**[1]:** Events across different domains may have same `event.name`, yet be
+unrelated events.
 
-| Value  | Description |
-|---|---|
+`event.domain` has the following list of well-known values. If one of them
+applies, then the respective value MUST be used, otherwise a custom value MAY be
+used.
+
+| Value     | Description              |
+|-----------|--------------------------|
 | `browser` | Events from browser apps |
-| `device` | Events from mobile apps |
-| `k8s` | Events from Kubernetes |
+| `device`  | Events from mobile apps  |
+| `k8s`     | Events from Kubernetes   |
+
 <!-- endsemconv -->
 
-[DocumentStatus]: https://github.com/open-telemetry/opentelemetry-specification/tree/v1.26.0/specification/document-status.md
+## Event Payloads
+
+An Event payload defines _what_ occurred. The payloads for Events with the same
+`event.domain` are `event.name` SHOULD conform to the same schema.
+
+Each Event in semantic conventions has a payload schema definition consisting of
+a collection of attributes and corresponding
+[requirement levels](./attribute-requirement-level.md). Event attributes are
+subject to the general [attribute naming](./attribute-naming.md) rules.
+
+TODO: define how event payload manifest on resulting log records
+
+[DocumentStatus]:
+  https://github.com/open-telemetry/opentelemetry-specification/tree/v1.26.0/specification/document-status.md
