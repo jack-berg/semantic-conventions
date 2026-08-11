@@ -86,6 +86,33 @@ groups:
               stability: stable
         brief: 'HTTP request method.'
         examples: ["GET", "POST", "HEAD"]
+        annotations:
+          config:
+            http.client:
+              known_methods:
+                type: array
+                minItems: 0
+                items:
+                  type: string
+                env_var: OTEL_INSTRUMENTATION_HTTP_KNOWN_METHODS
+                description: |
+                  Override the default list of known HTTP methods.
+                  Known methods are case-sensitive.
+                  This is a full override of the default known methods, not a list of known methods in addition to the defaults.
+                defaultBehavior: HTTP methods GET, HEAD, POST, PUT, DELETE, CONNECT, OPTIONS, TRACE, PATCH are known
+            http.server:
+              known_methods:
+                type: array
+                minItems: 0
+                items:
+                  type: string
+                env_var: OTEL_INSTRUMENTATION_HTTP_KNOWN_METHODS
+                description: |
+                  Override the default list of known HTTP methods.
+                  Known methods are case-sensitive.
+                  This is a full override of the default known methods, not a list of known methods in addition to the defaults.
+                defaultBehavior: HTTP methods GET, HEAD, POST, PUT, DELETE, CONNECT, OPTIONS, TRACE, PATCH are known
+
         note: |
           HTTP request method value SHOULD be "known" to the instrumentation.
           By default, this convention defines "known" methods as the ones listed in [RFC9110](https://www.rfc-editor.org/rfc/rfc9110.html#name-methods),
