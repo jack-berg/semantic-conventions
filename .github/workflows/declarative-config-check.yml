@@ -41,19 +41,7 @@ jobs:
           ref: semconv-integration
           path: opentelemetry-configuration
           persist-credentials: false
-          # Intentionally do not init the semantic-conventions submodule;
-          # we override it below.
-
-      - name: override otel-config semantic-conventions submodule
-        run: |
-          set -euo pipefail
-          # actions/checkout leaves the submodule directory empty when
-          # submodules is unset. Remove the placeholder and symlink to this
-          # PR's semconv checkout so merge-semconv-config.js reads its model
-          # YAML directly.
-          rm -rf opentelemetry-configuration/semantic-conventions
-          ln -s "$GITHUB_WORKSPACE/semantic-conventions" opentelemetry-configuration/semantic-conventions
-          ls -la opentelemetry-configuration/semantic-conventions/model | head -5
+          submodules: true
 
       - name: setup node
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v6.0.0
@@ -63,6 +51,26 @@ jobs:
       - name: install otel-config dependencies
         working-directory: opentelemetry-configuration
         run: npm install
+
+      - name: compile baseline (pinned semconv commit)
+        working-directory: opentelemetry-configuration
+        run: |
+          set -euo pipefail
+          # First compile uses the submodule as-pinned. This is the baseline
+          # against which we measure the PR's effect below. Compiling here
+          # rather than trusting the checked-in JSON keeps the diff isolated
+          # to this PR even if the checked-in file happens to be stale.
+          make compile-schema
+          cp opentelemetry_configuration.json /tmp/baseline.json
+
+      - name: override otel-config semantic-conventions submodule
+        run: |
+          set -euo pipefail
+          # Replace the pinned submodule contents with this PR's semconv
+          # checkout so the next compile reflects the PR.
+          rm -rf opentelemetry-configuration/semantic-conventions
+          ln -s "$GITHUB_WORKSPACE/semantic-conventions" opentelemetry-configuration/semantic-conventions
+          ls -la opentelemetry-configuration/semantic-conventions/model | head -5
 
       - name: compile otel-config schema
         id: compile
@@ -88,10 +96,10 @@ jobs:
         working-directory: opentelemetry-configuration
         run: |
           set -euo pipefail
-          # The fork branch's checked-in opentelemetry_configuration.json is
-          # the baseline (produced by the currently pinned semconv commit).
-          # Any diff here is the net effect of this semconv PR on the
-          # compiled schema. Informational; does not fail the job.
+          # Diff the PR compile against the pinned-baseline compile from an
+          # earlier step. This isolates the diff to just this PR's effect,
+          # regardless of how far otel-config's pinned semconv commit lags
+          # behind semconv main.
           {
             echo '## Compiled schema'
             echo ''
@@ -100,17 +108,17 @@ jobs:
             echo ''
             echo '## Diff vs pinned baseline'
             echo ''
-            if git diff --quiet -- opentelemetry_configuration.json; then
+            if diff -q /tmp/baseline.json opentelemetry_configuration.json > /dev/null; then
               echo '_No change to compiled schema._'
             else
               echo '```diff'
-              git --no-pager diff -- opentelemetry_configuration.json
+              diff -u /tmp/baseline.json opentelemetry_configuration.json || true
               echo '```'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
           # Also echo the diff into the run log for easy grepping.
           echo '--- diff ---'
-          git --no-pager diff -- opentelemetry_configuration.json || true
+          diff -u /tmp/baseline.json opentelemetry_configuration.json || true
 
       - name: upload compiled schema artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
