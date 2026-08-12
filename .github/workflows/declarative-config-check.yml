@@ -1,0 +1,108 @@
+name: Declarative Config Check
+
+# Verifies that changes to semantic-conventions model YAML do not break
+# opentelemetry-configuration's build. See
+# scratch/declarative-config-integration/plan.md.
+#
+# Mechanism: check out both repos, replace otel-config's `semantic-conventions`
+# submodule directory with this PR's semconv checkout, run otel-config's
+# compile + example validation.
+#
+# Scope: verifies otel-config schema compiles and its examples/snippets
+# validate. Does not verify downstream SDK code generators still work.
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  declarative-config-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: check out semantic-conventions (this PR)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: semantic-conventions
+          persist-credentials: false
+
+      - name: check out opentelemetry-configuration
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Pilot: point at the fork branch that carries the semconv merger.
+          # Flip to open-telemetry/opentelemetry-configuration @ main once
+          # the integration is upstream.
+          repository: jack-berg/opentelemetry-configuration
+          ref: semconv-integration
+          path: opentelemetry-configuration
+          persist-credentials: false
+          # Intentionally do not init the semantic-conventions submodule;
+          # we override it below.
+
+      - name: override otel-config semantic-conventions submodule
+        run: |
+          set -euo pipefail
+          # actions/checkout leaves the submodule directory empty when
+          # submodules is unset. Remove the placeholder and symlink to this
+          # PR's semconv checkout so merge-semconv-config.js reads its model
+          # YAML directly.
+          rm -rf opentelemetry-configuration/semantic-conventions
+          ln -s "$GITHUB_WORKSPACE/semantic-conventions" opentelemetry-configuration/semantic-conventions
+          ls -la opentelemetry-configuration/semantic-conventions/model | head -5
+
+      - name: setup node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v6.0.0
+        with:
+          node-version: '20'
+
+      - name: install otel-config dependencies
+        working-directory: opentelemetry-configuration
+        run: npm install
+
+      - name: compile otel-config schema
+        working-directory: opentelemetry-configuration
+        run: make compile-schema
+
+      - name: report compiled schema and diff
+        working-directory: opentelemetry-configuration
+        run: |
+          set -euo pipefail
+          # The fork branch's checked-in opentelemetry_configuration.json is
+          # the baseline (produced by the currently pinned semconv commit).
+          # Any diff here is the net effect of this semconv PR on the
+          # compiled schema. Informational; does not fail the job.
+          {
+            echo '## Compiled schema'
+            echo ''
+            echo "- Size: $(wc -c < opentelemetry_configuration.json) bytes"
+            echo "- Types in \$defs: $(node -e 'console.log(Object.keys(JSON.parse(require("fs").readFileSync("opentelemetry_configuration.json","utf8"))["$defs"]||{}).length)')"
+            echo ''
+            echo '## Diff vs pinned baseline'
+            echo ''
+            if git diff --quiet -- opentelemetry_configuration.json; then
+              echo '_No change to compiled schema._'
+            else
+              echo '```diff'
+              git --no-pager diff -- opentelemetry_configuration.json
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          # Also echo the diff into the run log for easy grepping.
+          echo '--- diff ---'
+          git --no-pager diff -- opentelemetry_configuration.json || true
+
+      - name: upload compiled schema artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: opentelemetry_configuration.json
+          path: opentelemetry-configuration/opentelemetry_configuration.json
+
+      - name: validate otel-config examples
+        working-directory: opentelemetry-configuration
+        run: make validate-examples
