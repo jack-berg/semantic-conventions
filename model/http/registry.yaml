@@ -17,10 +17,33 @@ groups:
         type: template[string[]]
         brief: >
           HTTP request headers, `<key>` being the normalized HTTP Header name (lowercase), the value being the header values.
+        annotations:
+          config:
+            general: |
+              Instrumentations SHOULD require an explicit configuration of which headers are to be captured.
+              Including all request headers can be a security risk - explicit configuration helps avoid leaking sensitive information.
+            declarative:
+              - config_scopes: [http.client]
+                properties:
+                  request_captured_headers:
+                    type: array
+                    minItems: 1
+                    items:
+                      type: string
+                    description: |
+                      Configure headers to capture for outbound http requests.
+                    defaultBehavior: no outbound request headers are captured
+              - config_scopes: [http.server]
+                properties:
+                  request_captured_headers:
+                    type: array
+                    minItems: 1
+                    items:
+                      type: string
+                    description: |
+                      Configure headers to capture for inbound http requests.
+                    defaultBehavior: no request headers are captured
         note: |
-          Instrumentations SHOULD require an explicit configuration of which headers are to be captured.
-          Including all request headers can be a security risk - explicit configuration helps avoid leaking sensitive information.
-
           The `User-Agent` header is already captured in the `user_agent.original` attribute.
           Users MAY explicitly configure instrumentations to capture them even though it is not recommended.
 
@@ -156,10 +179,33 @@ groups:
         type: template[string[]]
         brief: >
           HTTP response headers, `<key>` being the normalized HTTP Header name (lowercase), the value being the header values.
+        annotations:
+          config:
+            general: |
+              Instrumentations SHOULD require an explicit configuration of which headers are to be captured.
+              Including all response headers can be a security risk - explicit configuration helps avoid leaking sensitive information.
+            declarative:
+              - config_scopes: [http.client]
+                properties:
+                  response_captured_headers:
+                    type: array
+                    minItems: 1
+                    items:
+                      type: string
+                    description: |
+                      Configure headers to capture for inbound http responses.
+                    defaultBehavior: no inbound response headers are captured
+              - config_scopes: [http.server]
+                properties:
+                  response_captured_headers:
+                    type: array
+                    minItems: 1
+                    items:
+                      type: string
+                    description: |
+                      Configure headers to capture for outbound http responses.
+                    defaultBehavior: no response headers are captured
         note: |
-          Instrumentations SHOULD require an explicit configuration of which headers are to be captured.
-          Including all response headers can be a security risk - explicit configuration helps avoid leaking sensitive information.
-
           Users MAY explicitly configure instrumentations to capture them even though it is not recommended.
 
           The attribute value MUST consist of either multiple header values as an array of strings
