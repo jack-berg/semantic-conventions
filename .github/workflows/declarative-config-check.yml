@@ -1,8 +1,7 @@
 name: Declarative Config Check
 
 # Verifies that changes to semantic-conventions model YAML do not break
-# opentelemetry-configuration's build. See
-# scratch/declarative-config-integration/plan.md.
+# opentelemetry-configuration's build.
 #
 # Mechanism: check out both repos, replace otel-config's `semantic-conventions`
 # submodule directory with this PR's semconv checkout, run otel-config's
@@ -66,8 +65,24 @@ jobs:
         run: npm install
 
       - name: compile otel-config schema
+        id: compile
         working-directory: opentelemetry-configuration
         run: make compile-schema
+
+      - name: explain compile failure
+        if: failure() && steps.compile.conclusion == 'failure'
+        run: |
+          {
+            echo '## Compile against opentelemetry-configuration failed'
+            echo ''
+            echo 'This check runs `make compile-schema` in opentelemetry-configuration'
+            echo 'with its `semantic-conventions` submodule pointed at this PR. The'
+            echo 'failure above comes from otel-config''s merger, not from semconv itself.'
+            echo ''
+            echo 'Errors originate in `scripts/merge-semconv-config.js` in otel-config.'
+            echo 'A fix typically requires a companion PR against otel-config.'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 1
 
       - name: report compiled schema and diff
         working-directory: opentelemetry-configuration
